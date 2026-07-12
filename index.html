@@ -80,7 +80,6 @@ body {
 #score { transition: transform 0.1s ease-out; }
 #score.pop { transform: scale(1.25); color: #ffe066; }
 
-/* Sound toggle */
 #sound-toggle {
     position: absolute;
     top: max(16px, env(safe-area-inset-top) + 8px);
@@ -99,7 +98,6 @@ body {
     cursor: pointer;
 }
 
-/* Combo banner */
 #combo-display {
     position: absolute;
     top: 20px;
@@ -128,7 +126,6 @@ body {
     100% { transform: translateX(-50%) scale(1); }
 }
 
-/* Cannons */
 .cannon {
     position: absolute;
     bottom: max(8px, env(safe-area-inset-bottom) + 6px);
@@ -141,7 +138,6 @@ body {
     transition: transform 0.05s ease-out;
 }
 
-/* Objects Layer */
 #objects {
     position: absolute;
     inset: 0;
@@ -154,7 +150,6 @@ body {
     position: absolute;
 }
 
-/* Boss Health System CSS Elements */
 .boss-hp-container {
     position: absolute;
     width: 60px;
@@ -174,7 +169,6 @@ body {
     transition: width 0.1s ease-out;
 }
 
-/* Missing asset styling blocks */
 .fallback-sword {
     width: 16px;
     height: 50px;
@@ -377,7 +371,6 @@ body {
         <div class="lane-trigger" data-lane="4"></div>
     </div>
 
-    <!-- Cannons -->
     <img src="images/Cannon.png" class="cannon" style="left:10%;" onerror="this.style.background='#374151'; this.style.borderRadius='8px 8px 0 0';">
     <img src="images/Cannon.png" class="cannon" style="left:30%;" onerror="this.style.background='#374151'; this.style.borderRadius='8px 8px 0 0';">
     <img src="images/Cannon.png" class="cannon" style="left:50%;" onerror="this.style.background='#374151'; this.style.borderRadius='8px 8px 0 0';">
@@ -386,7 +379,6 @@ body {
 
     <div id="objects"></div>
 
-    <!-- Game Over Screen -->
     <div id="game-over-screen" class="screen hidden">
         <h1>GAME OVER</h1>
         <p id="final-score">Your Score: 0</p>
@@ -397,7 +389,7 @@ body {
 
 <script>
 /* ============================
-   Audio Engine (procedural, no external files needed)
+   Audio Engine
    ============================ */
 const AudioEngine = (() => {
     let ctx = null;
@@ -508,7 +500,6 @@ soundToggleBtn.addEventListener("pointerdown", (e) => {
    ============================ */
 const UpgradeSystem = {
     getSwordData(lvl) {
-        // Upgrade Tier increments every 4 levels
         const tier = Math.floor((lvl - 1) / 4);
         switch(tier) {
             case 0:  return { name: "Iron Dagger", width: 40, height: 40, speed: 14, color: "#cbd5e1", glow: "rgba(255,255,255,0)" };
@@ -531,11 +522,11 @@ const comboEl = document.getElementById("combo-display");
 
 const cannonPos = [10, 30, 50, 70, 90];
 let score = 0, lives = 3, level = 1, isGameOver = false;
-let activeSwords = [], activeMelons = [], spawnInterval;
+let activeSwords = [], activeMelons = [], spawnInterval = null;
 let combo = 0, bestCombo = 0, comboResetTimer = null;
 let bossActive = false;
+let animationFrameId = null;
 
-// Controls
 laneContainer.addEventListener("pointerdown", e => {
     AudioEngine.unlock();
     if (isGameOver) return;
@@ -615,7 +606,6 @@ function shootSword(cannonIndex) {
     img.src = "images/Sword.png";
     img.style.width = "100%";
     img.style.height = "100%";
-    // Asset fallback layout
     img.onerror = () => {
         img.remove();
         sword.classList.add("fallback-sword");
@@ -644,7 +634,6 @@ function shootSword(cannonIndex) {
 function spawnWatermelon() {
     if (isGameOver || bossActive) return;
 
-    // Trigger Boss sequence instead of regular wave if condition hit
     if (level % 5 === 0) {
         triggerBossMelon();
         return;
@@ -691,7 +680,7 @@ function spawnWatermelon() {
 
 function triggerBossMelon() {
     bossActive = true;
-    clearInterval(spawnInterval);
+    if (spawnInterval) clearInterval(spawnInterval);
 
     flashScreen();
     screenShake("big");
@@ -710,7 +699,7 @@ function triggerBossMelon() {
     boss.style.height = `${bossSize}px`;
 
     const img = document.createElement("img");
-    img.src = "images/Watermelon.png"; // Scales up automatically
+    img.src = "images/Watermelon.png";
     img.style.width = "100%";
     img.style.height = "100%";
     img.onerror = () => {
@@ -721,7 +710,6 @@ function triggerBossMelon() {
     };
     boss.appendChild(img);
 
-    // HP Bar Elements 
     const hpContainer = document.createElement("div");
     hpContainer.className = "boss-hp-container";
     const hpBar = document.createElement("div");
@@ -730,7 +718,7 @@ function triggerBossMelon() {
     boss.appendChild(hpContainer);
 
     const gameWidth = gameEl.clientWidth;
-    const targetX = gameWidth / 2; // Drops down the center lane
+    const targetX = gameWidth / 2;
 
     boss.style.left = `${targetX - (bossSize / 2)}px`;
     boss.style.top = "-130px";
@@ -798,7 +786,6 @@ function showLevelBanner() {
     banner.className = "level-banner";
     banner.style.color = "#4ade80";
     
-    // Check if sword upgraded this level
     const weaponName = UpgradeSystem.getSwordData(level).name;
     const isUpgradeLevel = (level - 1) % 4 === 0 && level > 1;
 
@@ -831,7 +818,6 @@ function registerHit(x, y, isBossDeath = false) {
         updateComboDisplay();
     }, 1500);
 
-    // Boss death yields high base scores
     const baseReward = isBossDeath ? 100 : 10;
     const bonus = baseReward + Math.min(combo - 1, 10) * 2;
     score += bonus;
@@ -863,9 +849,8 @@ function checkLevelUp() {
         flashScreen();
         showLevelBanner();
         
-        // Re-adjust parameters
         if (!bossActive) {
-            clearInterval(spawnInterval);
+            if (spawnInterval) clearInterval(spawnInterval);
             spawnInterval = setInterval(spawnWatermelon, Math.max(450, 1300 - level * 90));
         }
     }
@@ -888,13 +873,11 @@ function updateLives() {
     if (lives <= 0) endGame();
 }
 
-// Main Engine Frame Loop
 function updateGame() {
     if (isGameOver) return;
 
     const gameHeight = window.innerHeight;
 
-    // Process Projectile Swords
     for (let i = activeSwords.length - 1; i >= 0; i--) {
         const s = activeSwords[i];
         s.y += s.speed;
@@ -907,7 +890,6 @@ function updateGame() {
         }
     }
 
-    // Process Falling Targets + Collision Math
     for (let i = activeMelons.length - 1; i >= 0; i--) {
         const m = activeMelons[i];
         m.y += m.speed;
@@ -919,11 +901,11 @@ function updateGame() {
         m.element.style.top = `${m.y}px`;
         m.element.style.transform = `translateX(${sway}px) rotate(${rotation}deg)`;
 
-        // Check leak threshold boundary
         if (m.y > gameHeight - 120) {
             updateLives();
             if (m.isBoss) {
                 bossActive = false;
+                if (spawnInterval) clearInterval(spawnInterval);
                 spawnInterval = setInterval(spawnWatermelon, Math.max(450, 1300 - level * 90));
             }
             m.element.remove();
@@ -931,7 +913,6 @@ function updateGame() {
             continue;
         }
 
-        // Precise AABB/Bounding box intersections
         const melonRect = m.element.getBoundingClientRect();
 
         for (let j = activeSwords.length - 1; j >= 0; j--) {
@@ -946,7 +927,6 @@ function updateGame() {
                 const hitX = melonRect.left + (m.width / 2);
                 const hitY = melonRect.top + (m.height / 2);
 
-                // Destroy Sword ammo piece on impact
                 s.element.remove();
                 activeSwords.splice(j, 1);
 
@@ -960,7 +940,6 @@ function updateGame() {
                     screenShake("small");
 
                     if (m.hp <= 0) {
-                        // Boss defeated successfully
                         createSplatter(hitX, hitY, 2.2);
                         m.element.remove();
                         activeMelons.splice(i, 1);
@@ -968,11 +947,10 @@ function updateGame() {
                         bossActive = false;
                         registerHit(hitX, hitY, true);
                         
-                        // Resume regular spawner loop
+                        if (spawnInterval) clearInterval(spawnInterval);
                         spawnInterval = setInterval(spawnWatermelon, Math.max(450, 1300 - level * 90));
                     }
                 } else {
-                    // Normal Melon collision behavior
                     createSplatter(hitX, hitY, 1);
                     m.element.remove();
                     activeMelons.splice(i, 1);
@@ -984,13 +962,15 @@ function updateGame() {
         }
     }
 
-    requestAnimationFrame(updateGame);
+    animationFrameId = requestAnimationFrame(updateGame);
 }
 
 function endGame() {
     isGameOver = true;
     bossActive = false;
-    clearInterval(spawnInterval);
+    if (spawnInterval) clearInterval(spawnInterval);
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    
     document.getElementById("final-score").textContent = `Your Score: ${score}`;
     document.getElementById("best-combo-line").textContent = bestCombo >= 2 ? `Best Combo: x${bestCombo}` : "";
     AudioEngine.playGameOver();
@@ -998,22 +978,35 @@ function endGame() {
 }
 
 function resetGame() {
-    activeSwords.forEach(s => s.element?.remove());
-    activeMelons.forEach(m => m.element?.remove());
+    // 1. CLEAR AND STOP ALL CURRENT ENGINE RUNNERS FIRST
+    if (spawnInterval) clearInterval(spawnInterval);
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    clearTimeout(comboResetTimer);
+
+    // 2. Wipe existing physical elements out of the container
+    objectLayer.innerHTML = "";
+
+    // 3. Purge memory arrays completely
     activeSwords = [];
     activeMelons = [];
 
-    score = 0; lives = 3; level = 1; isGameOver = false;
-    combo = 0; bestCombo = 0; bossActive = false;
-    clearTimeout(comboResetTimer);
+    // 4. Clear state engines back to base defaults
+    score = 0; 
+    lives = 3; 
+    level = 1; 
+    isGameOver = false;
+    combo = 0; 
+    bestCombo = 0; 
+    bossActive = false;
 
+    // 5. Update UI Text elements
     scoreEl.textContent = "Score: 0";   
     livesEl.textContent = "❤️❤️❤️";
     levelEl.textContent = "Lvl 1";
     updateComboDisplay();
     gameOverScreen.classList.add("hidden");
 
-    clearInterval(spawnInterval);
+    // 6. Fire single structural spawner loop cleanly
     spawnInterval = setInterval(spawnWatermelon, 1200);
     updateGame();
 }
